@@ -11,7 +11,8 @@ sig ord : Order(a)
 fun ord(x, y) { if (x == y) Equal else if (x < y) Lower else Greater }
 
 # make_map : (Order (a,{ |e})) -> Map (a,b,{ |e})
-sig make_map : (Order(a)) -> Map(a, b)
+# want the arrow to NOT share with Order and Map here
+sig make_map : (Order(a)) -f-> Map(a, b)
 fun make_map(ord) {
   (ord=ord, tree=Leaf)
 }
@@ -53,7 +54,7 @@ fun upd_tree(ord, key, value, tree) {
 }
 
 # sig upd_map : (a, b, Map(a,b,{ |e})) ~e~> Map(a,b,{ |e})
-sig upd_map : (a, b, Map(a,b,{ |e})) ~e~> Map(a,b,{ |e})
+sig upd_map : (a, b, Map(a,b)) ~> Map(a,b)
 fun upd_map(key, value, mp) {
   var (ord=ord, tree=tree) = mp;
   (mp with tree = upd_tree(ord, key, value, tree))
@@ -71,7 +72,8 @@ fun map_tree(f, tree) {
   }
 }
 
-sig map_map : ((a) ~f~> b, Map(k, a, { |e})) ~f~> Map(k, b, { |e})
+# sig map_map : ((a) ~f~> b, Map(k, a, { |e})) ~f~> Map(k, b, { |e})
+sig map_map : ((a) ~f~> b, Map(k, a)) ~f~> Map(k, b)
 fun map_map(f, mp) {
   var (ord=ord, tree=tree) = mp;
   var tree = map_tree(f, tree);
@@ -118,7 +120,8 @@ fun del_tree(ord, key, tree) {
   }
 }
 
-sig del_map : (a, Map(a,b, { |e})) ~e~> Map(a,b, { |e})
+# sig del_map : (a, Map(a,b, { |e})) ~e~> Map(a,b, { |e})
+sig del_map : (a, Map(a,b)) ~> Map(a,b)
 fun del_map(key, mp) {
   var (ord=ord, tree=tree) = mp;
   (mp with tree = del_tree(ord, key, tree))
@@ -129,17 +132,20 @@ fun del_map(key, mp) {
 
 typename Set(a) = Map(a, ());
 
-sig make_set : (Order(a)) -> Set(a)
+# want the arrow to not share
+sig make_set : (Order(a)) -f-> Set(a)
 fun make_set(ord) {
   make_map(ord)
 }
 
-sig add_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+# sig add_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+sig add_set : (a, Set(a)) ~> Set(a)
 fun add_set(key, s) {
   upd_map(key, (), s)
 }
 
-sig set_of_list : (Order(a, { |e}), [a]) ~e~> Set(a, { |e})
+# sig set_of_list : (Order(a, { |e}), [a]) ~e~> Set(a, { |e})
+sig set_of_list : (Order(a), [a]) ~> Set(a)
 fun set_of_list(ord, lst) {
   fold_left(fun (s, x) { add_set(x, s) }, make_set(ord), lst)
 }
@@ -152,12 +158,16 @@ fun has_set(key, s) {
   }
 }
 
-sig del_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+# sig del_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+sig del_set : (a, Set(a)) ~> Set(a)
 fun del_set(key, s) {
   del_map(key, s)
 }
 
 sig cart : (Set(a, { |e}), Set(b, { |e})) ~e~> Set((a,b), { |e})
+# explicitly putting effects here, so that the same effect variable
+# can be inside too, but maybe this is not necessary
+# sig cart : (Set(a), Set(b)) ~> Set((a,b))
 fun cart(left, right) {
   var (ord=ord_left|_) = left;
   var (ord=ord_right|_) = right;
@@ -181,9 +191,11 @@ fun cart(left, right) {
 # Group:
 
 # TODO: the same effect for both?
-typename Group(a, e::Eff) = (carrier:Set(a, { |e}), mult:Map((a,a), a, { |e}));
+# typename Group(a, e::Eff) = (carrier:Set(a, { |e}), mult:Map((a,a), a, { |e}));
+typename Group(a) = (carrier:Set(a), mult:Map((a,a), a));
 
-sig set_group_mlt : ((a, a), a, Group(a, { |e})) ~e~> Group(a, { |e})
+# sig set_group_mlt : ((a, a), a, Group(a, { |e})) ~e~> Group(a, { |e})
+sig set_group_mlt : ((a, a), a, Group(a)) ~> Group(a)
 fun set_group_mlt((left, right), res, grp) {
   var (carrier=carrier, mult=mult) = grp;
   if (has_set(left, carrier) && has_set(right, carrier)) {
@@ -194,7 +206,8 @@ fun set_group_mlt((left, right), res, grp) {
 }
 
 # Create a group where all multiplications go to the identity element (default case, this is to be modified later)
-sig make_group : (Set(a, { |e}), a) ~e~> Group(a, { |e})
+# sig make_group : (Set(a, { |e}), a) ~e~> Group(a, { |e})
+sig make_group : (Set(a), a) ~> Group(a)
 fun make_group(carrier, identity) {
   var carXcar = cart(carrier, carrier);
   var mult = map_map(fun (()) { identity }, carXcar);
