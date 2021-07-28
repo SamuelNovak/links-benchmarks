@@ -1,0 +1,170 @@
+# Trees and Maps
+
+typename Ord = [| Lower | Greater | Equal |];
+
+typename Order(a, e::Eff) = (a, a) ~e~> Ord;
+typename Tree(a, b) = mu t. [| Node:(left:t, key:a, value:b, right:t) | Leaf |];
+
+typename Map(a, b, e::Eff) = (ord:Order(a, { |e}), tree:Tree(a,b));
+
+# default ordering
+sig ord : Order(a)
+fun ord(x, y) { if (x == y) Equal else if (x < y) Lower else Greater }
+
+# make_map : (Order (a,{ |e})) -> Map (a,b,{ |e})
+sig make_map : (Order(a)) -> Map(a, b)
+fun make_map(ord) {
+  (ord=ord, tree=Leaf)
+}
+
+# find_tree_opt : (Order (a,{ |e}), a, Tree (a,b)) ~e~> Maybe (b)
+sig find_tree_opt : (Order(a), a, Tree(a,b)) ~> Maybe(b)
+fun find_tree_opt(ord, key, tree) {
+  switch (tree) {
+    case Leaf -> Nothing
+    case Node(tree) ->
+      switch (ord(key, tree.key)) {
+        case Equal   -> Just(tree.value)
+        case Lower   -> find_tree_opt(ord, key, tree.left)
+        case Greater -> find_tree_opt(ord, key, tree.right)
+      }
+  }
+}
+
+# ref_map : (a, Map(a,b,{ |e})) { |e}~> Maybe(b)
+sig ref_map : (a, Map(a,b)) ~> Maybe(b)
+fun ref_map(key, mp) {
+  var (ord=ord, tree=tree) = mp;
+  find_tree_opt(ord, key, tree)
+}
+
+# TODO rebalancing
+sig upd_tree : (Order(a), a, b, Tree(a,b)) ~> Tree(a,b)
+fun upd_tree(ord, key, value, tree) {
+  var tree = switch (tree) {
+               case Leaf -> (key=key, value=value, left=Leaf, right=Leaf)
+               case Node(tree) ->
+                 switch (ord(key, tree.key)) {
+                   case Equal   -> (tree with value = value)
+                   case Lower   -> (tree with left  = upd_tree(ord, key, value, tree.left))
+                   case Greater -> (tree with right = upd_tree(ord, key, value, tree.right))
+                 }
+             };
+  Node(tree)
+}
+
+# sig upd_map : (a, b, Map(a,b,{ |e})) ~e~> Map(a,b,{ |e})
+sig upd_map : (a, b, Map(a,b,{ |e})) ~e~> Map(a,b,{ |e})
+fun upd_map(key, value, mp) {
+  var (ord=ord, tree=tree) = mp;
+  (mp with tree = upd_tree(ord, key, value, tree))
+}
+
+sig fold_tree : ((a, b, q) ~> q, Tree(a,b), q) ~> q
+fun fold_tree(f, tree, acc) {
+  switch (tree) {
+    case Leaf -> acc
+    case Node(tree) ->
+      var acc = fold_tree(f, tree.left, acc);
+      var acc = f(tree.key, tree.value, acc);
+      var acc = fold_tree(f, tree.right, acc);
+      acc
+  }
+}
+
+# surprisingly here the desugaring works
+sig fold_map : ((a, b, q) ~> q, Map(a, b), q) ~> q
+fun fold_map(f, mp, acc) {
+  var (ord=ord, tree=tree) = mp;
+  fold_tree(f, tree, acc)
+}
+
+sig merge_subtrees : (Order(a), Tree(a,b), Tree(a,b)) ~> Tree(a,b)
+fun merge_subtrees(ord, left, right) {
+  # TODO optimise and perform rebalacing
+  fold_tree(fun (key, value, acc) {
+    upd_tree(ord, key, value, acc)
+  }, right, left)
+}
+
+sig del_tree : (Order(a), a, Tree(a,b)) ~> Tree(a,b)
+fun del_tree(ord, key, tree) {
+  switch (tree) {
+    case Leaf -> Leaf
+    case Node(tree) ->
+      switch (ord(key, tree.key)) {
+        case Equal   -> merge_subtrees(ord, tree.left, tree.right)
+        case Lower   -> Node(tree with left  = del_tree(ord, key, tree.left))
+        case Greater -> Node(tree with right = del_tree(ord, key, tree.right))
+      }
+  }
+}
+
+sig del_map : (a, Map(a,b, { |e})) ~e~> Map(a,b, { |e})
+fun del_map(key, mp) {
+  var (ord=ord, tree=tree) = mp;
+  (mp with tree = del_tree(ord, key, tree))
+}
+
+
+# Set:
+
+typename Set(a) = Map(a, ());
+
+sig make_set : (Order(a)) -> Set(a)
+fun make_set(ord) {
+  make_map(ord)
+}
+
+sig add_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+fun add_set(key, s) {
+  upd_map(key, (), s)
+}
+
+sig has_set : (a, Set(a)) ~> Bool
+fun has_set(key, s) {
+  switch (ref_map(key, s)) {
+    case Just(()) -> true
+    case Nothing  -> false
+  }
+}
+
+sig del_set : (a, Set(a, { |e})) ~e~> Set(a, { |e})
+fun del_set(key, s) {
+  del_map(key, s)
+}
+
+
+# Group:
+
+# TODO: the same effect for both?
+typename Group(a, e::Eff) = (carrier:Set(a, { |e}), mult:Map((a,a), a, { |e}));
+
+sig ord_of_pair : (Order(a, { |e})) -> Order((a,a), { |e})
+fun ord_of_pair(ord) {
+  fun ((x1, x2), (y1, y2)) {
+    switch (ord(x1, x2)) {
+      case Equal   -> ord(y1, y2)
+      case Lower   -> Lower
+      case Greater -> Greater
+    }
+  }
+}
+
+sig make_group : (Set(a, { |e})) -> Group(a, { |e})
+fun make_group(carrier) {
+  var (ord=ord|_) = carrier;
+  var ordp = ord_of_pair(ord);
+  (carrier=carrier, mult=make_map(ordp))
+}
+
+
+sig add_group_mlt : ((a, a), a, Group(a, { |e})) ~e~> Group(a, { |e})
+fun add_group_mlt((left, right), res, grp) {
+  var (carrier=carrier, mult=mult) = grp;
+  if (has_set(left, carrier) && has_set(right, carrier)) {
+    (grp with mult = upd_map((left, right), res, mult))
+  } else {
+    error("Attempting to add a group multiplication where one or both values do not belong to the group.")
+  }
+}
