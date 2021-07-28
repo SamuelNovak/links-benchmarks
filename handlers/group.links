@@ -1,10 +1,9 @@
 # Trees and Maps
 
 typename Ord = [| Lower | Greater | Equal |];
-
 typename Order(a, e::Eff) = (a, a) ~e~> Ord;
-typename Tree(a, b) = mu t. [| Node:(left:t, key:a, value:b, right:t) | Leaf |];
 
+typename Tree(a, b) = mu t. [| Node:(left:t, key:a, value:b, right:t) | Leaf |];
 typename Map(a, b, e::Eff) = (ord:Order(a, { |e}), tree:Tree(a,b));
 
 # default ordering
@@ -60,7 +59,26 @@ fun upd_map(key, value, mp) {
   (mp with tree = upd_tree(ord, key, value, tree))
 }
 
-sig fold_tree : ((a, b, q) ~> q, Tree(a,b), q) ~> q
+sig map_tree : ((a) ~> b, Tree(k, a)) ~> Tree(k, b)
+fun map_tree(f, tree) {
+  switch (tree) {
+    case Leaf -> Leaf
+    case Node(tree) ->
+      var left  = map_tree(f, tree.left);
+      var value = f(tree.value);
+      var right = map_tree(f, tree.right);
+      Node(key=tree.key, value=value, left=left, right=right)
+  }
+}
+
+sig map_map : ((a) ~f~> b, Map(k, a, { |e})) ~f~> Map(k, b, { |e})
+fun map_map(f, mp) {
+  var (ord=ord, tree=tree) = mp;
+  var tree = map_tree(f, tree);
+  (ord=ord, tree=tree)
+}
+
+sig fold_tree : ((a, b, q) ~> q, Tree(a, b), q) ~> q
 fun fold_tree(f, tree, acc) {
   switch (tree) {
     case Leaf -> acc
@@ -121,6 +139,11 @@ fun add_set(key, s) {
   upd_map(key, (), s)
 }
 
+sig set_of_list : (Order(a, { |e}), [a]) ~e~> Set(a, { |e})
+fun set_of_list(ord, lst) {
+  fold_left(fun (s, x) { add_set(x, s) }, make_set(ord), lst)
+}
+
 sig has_set : (a, Set(a)) ~> Bool
 fun has_set(key, s) {
   switch (ref_map(key, s)) {
@@ -134,37 +157,46 @@ fun del_set(key, s) {
   del_map(key, s)
 }
 
+sig cart : (Set(a, { |e}), Set(b, { |e})) ~e~> Set((a,b), { |e})
+fun cart(left, right) {
+  var (ord=ord_left|_) = left;
+  var (ord=ord_right|_) = right;
+
+  sig ord : Order((a,b), { |e})
+  fun ord((xl, xr), (yl, yr)) {
+    switch (ord_left(xl, yl)) {
+      case Equal -> ord_right(xr, yr)
+      case Lower -> Lower
+      case Greater -> Greater
+    }
+  }
+
+  fold_map(fun (key_left, (), acc_left) {
+    fold_map(fun (key_right, (), acc_right) {
+      add_set((key_left, key_right), acc_right)
+    }, right, acc_left)
+  }, left, make_set(ord))
+}
 
 # Group:
 
 # TODO: the same effect for both?
 typename Group(a, e::Eff) = (carrier:Set(a, { |e}), mult:Map((a,a), a, { |e}));
 
-sig ord_of_pair : (Order(a, { |e})) -> Order((a,a), { |e})
-fun ord_of_pair(ord) {
-  fun ((x1, x2), (y1, y2)) {
-    switch (ord(x1, x2)) {
-      case Equal   -> ord(y1, y2)
-      case Lower   -> Lower
-      case Greater -> Greater
-    }
-  }
-}
-
-sig make_group : (Set(a, { |e})) -> Group(a, { |e})
-fun make_group(carrier) {
-  var (ord=ord|_) = carrier;
-  var ordp = ord_of_pair(ord);
-  (carrier=carrier, mult=make_map(ordp))
-}
-
-
-sig add_group_mlt : ((a, a), a, Group(a, { |e})) ~e~> Group(a, { |e})
-fun add_group_mlt((left, right), res, grp) {
+sig set_group_mlt : ((a, a), a, Group(a, { |e})) ~e~> Group(a, { |e})
+fun set_group_mlt((left, right), res, grp) {
   var (carrier=carrier, mult=mult) = grp;
   if (has_set(left, carrier) && has_set(right, carrier)) {
     (grp with mult = upd_map((left, right), res, mult))
   } else {
     error("Attempting to add a group multiplication where one or both values do not belong to the group.")
   }
+}
+
+# Create a group where all multiplications go to the identity element (default case, this is to be modified later)
+sig make_group : (Set(a, { |e}), a) ~e~> Group(a, { |e})
+fun make_group(carrier, identity) {
+  var carXcar = cart(carrier, carrier);
+  var mult = map_map(fun (()) { identity }, carXcar);
+  (carrier=carrier, mult=mult)
 }
