@@ -1,0 +1,4 @@
+typename Orientation3D = (phi:Float, theta:Float);
+typename Probability = Float;
+
+typename Measurement = [| Spin:(Orientation3D, [| Up | Down |]) |];
