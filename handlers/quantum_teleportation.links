@@ -1,4 +1,31 @@
+typename Complex = (re:Float, im:Float);
+
+sig (+~) : (Complex, Complex) {}-> Complex
+op z +~ w {
+  var re = z.re +. w.re;
+  var im = z.im +. w.im;
+  (re=re, im=im)
+}
+
 typename Orientation3D = (phi:Float, theta:Float);
 typename Probability = Float;
+typename Spin = [| Up | Down |];
 
-typename Measurement = [| Spin:(Orientation3D, [| Up | Down |]) |];
+typename Qubit = [| Qubit(Int) |];
+
+# TODO: representation in separate qubits or whole state?
+# I prefer whole state (so do many Û), but need to reconcile that with
+# individual qubits in A/B pov
+
+typename Ket = [Complex];
+typename Operator = [[Complex]];
+
+sig total_state_manager : (Comp(a, { New:Qubit
+                                   , Apply:(Operator, Qubit) {}-> ()
+                                   , Measure:(Orientation3D, Qubit) {}-> Spin })) -> a
+fun total_state_manager(f) {
+  shallowhandle(f()) {
+    case Return(v) -> v
+    case New -> 
+  }
+}
