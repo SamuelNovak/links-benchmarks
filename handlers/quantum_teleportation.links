@@ -133,21 +133,46 @@ typename Orientation3D = (phi:Float, theta:Float);
 typename Probability = Float;
 typename Spin = [| Up | Down |];
 
-typename Qubit = [| Qubit(Int) |];
+typename Qubit = [| Qubit:(Int) |];
 
 # TODO: representation in separate qubits or whole state?
 # I prefer whole state (so do many Û), but need to reconcile that with
 # individual qubits in A/B pov
 
+# Individual first - no entanglement; then together
+
 typename Ket = [Complex];
 typename Operator = [[Complex]];
 
-sig total_state_manager : (Comp(a, { New:Qubit
-                                   , Apply:(Operator, Qubit) {}-> ()
-                                   , Measure:(Orientation3D, Qubit) {}-> Spin })) -> a
-fun total_state_manager(f) {
+typename State = (individual:Map(Qubit, Ket, {}), full:Ket);
+
+sig init_state : () {}-> State
+fun init_state() {
+  fun qubit_ord(Qubit(l):Qubit, Qubit(r):Qubit) {
+    def_ord(l, r)
+  }
+  var mp = make_map(qubit_ord);
+  var ket = [];
+  (individual=mp, full=ket)
+}
+
+sig global_state_manager : (State,
+                            Comp(a, { New:Qubit
+                                    # , Apply:(Operator, Qubit) {}-> ()
+                                    , Measure:(Orientation3D, Qubit) {}-> Spin })) -> a
+fun global_state_manager(gs, f) {
   shallowhandle(f()) {
     case Return(v) -> v
-    case New -> 
+    case New(r) ->
+      var qb = Qubit(gensym());
+      var ket = [(1.0, 0.0), (0.0, 0.0)];
+      var mp' = upd_map(qb, ket, gs.individual);
+      var full' = gs.full ++ ket;
+      var gs' = (individual=mp', full=full');
+      global_state_manager(gs', r)
+    # case Apply(operator, qb) ->
+    #   var st =
+    case Measure(orientation, qb, r) ->
+      global_state_manager(gs, fun() { r(Up) })
   }
 }
