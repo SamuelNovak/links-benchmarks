@@ -1,12 +1,12 @@
-This collection contains slightly modified versions of [`nbody_layered.links`](https://github.com/links-lang/links-benchmarks/blob/main/handlers/nbody_layered.links) (as of [`31e6ea5`](https://github.com/links-lang/links-benchmarks/commit/31e6ea55a6f50d14d3dc32dc235786d8b4297e2d)).
+This collection contains slightly modified versions of [`../handlers/nbody_layered.links`](../handlers/nbody_layered.links).
 
 The original program uses a handlery abstractions to numerically simulate the Solar system. Some of the physics functions have quite complex types, and that is what I targeted here.
 
 The files included here are described below. They can also be diffed with the original, I only made minimal changes.
 
-Note you need to run Links either with the config file [`nbody_layered.config`](https://github.com/links-lang/links-benchmarks/blob/main/handlers/nbody_layered.config) (included), or with options `--enable-handlers --set=effect_sugar=true`.
+Note you need to run Links either with the config file [`nbody_layered.config`](nbody_layered.config) (included), or with options `--enable-handlers --set=effect_sugar=true`.
 
-* **`nbody_layered_type_error.links`**: There is a type error in a fold function within the function `universe`, caused by tuple at line 365, which is only supposed to have two elements. This is a very small perturbation, and a realistic one - the program has signatures and nice aliases for compound types; however, it produces a massive type error - mostly due to the complexity of the function type, but the expanded vectors do not help.
+* **[`nbody_layered_type_error.links`](nbody_layered_type_error.links)**: There is a type error in a fold function within the function `universe`, caused by tuple at line 365, which is only supposed to have two elements. This is a very small perturbation, and a realistic one - the program has signatures and nice aliases for compound types; however, it produces a massive type error - mostly due to the complexity of the function type, but the expanded vectors do not help.
 
   ```links
   nbody_layered_type_error.links:359: Type error: The function
@@ -39,7 +39,7 @@ Note you need to run Links either with the config file [`nbody_layered.config`](
         }, (zero3, []), inters).
   ```
 
-* **`nbody_layered_sigless.links`**: This file is correct, but omits all type annotations. Examples of large types are functions `body`, `init_system`.
+* **[`nbody_layered_sigless.links`](nbody_layered_sigless.links)**: This file is correct, but omits all type annotations. Examples of large types are functions `body`, `init_system`.
 
   ```links
   fun
@@ -59,11 +59,11 @@ Note you need to run Links either with the config file [`nbody_layered.config`](
     Float, Float)|_}~> _::Any]
   ```
 
-* **`nbody_layered_sigless_type_error.links`**: Combines the two above cases: no signatures and also the same type error. More vectors are expanded.
+* **[`nbody_layered_sigless_type_error.links`](nbody_layered_sigless_type_error.links)**: Combines the two above cases: no signatures and also the same type error. More vectors are expanded.
 
-* **`nbody_layered_type_error_annotated.links`**: Here, I tried putting more type annotations into `nbody_layered_type_error.links`, to see how much the error message reduces. Subjectively, it is easier to look at, though this may not be the case you are interested in.
+* **[`nbody_layered_type_error_annotated.links`](nbody_layered_type_error_annotated.links)**: Here, I tried putting more type annotations into `nbody_layered_type_error.links`, to see how much the error message reduces. Subjectively, it is easier to look at, though this may not be the case you are interested in.
 
-* **`../generic/nbody_type_error.links`**: The non-handlery program (but solves the same problem, Nbody simulation). The original is [here](https://github.com/links-lang/links-benchmarks/blob/main/generic/nbody.links). I introduced a type error into it as well.
+* **[`nbody_type_error.links`](nbody_type_error.links)**: The non-handlery program (but solves the same problem, Nbody simulation). The original is [`../generic/nbody.links`](../generic/nbody.links). I introduced a type error into it as well.
 
   ```links
   nbody_type_error.links:168: Type error: The infix operator
