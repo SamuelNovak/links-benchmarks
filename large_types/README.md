@@ -6,6 +6,18 @@ The files included here are described below. They can also be diffed with the or
 
 Note you need to run Links either with the config file [`nbody_layered.config`](nbody_layered.config) (included), or with options `--enable-handlers --set=effect_sugar=true`.
 
+Note also these definitions, especially `Vector3` (and to some extent `Body`) is important in the types below.
+
+```links
+typename Triple(a) = (a, a, a);
+typename Vector3 = Triple(Float);
+typename Scalar = Float;
+typename Body = ( pos  : Vector3
+                , vel  : Vector3
+                , mass : Scalar );
+typename State = [Body];
+```
+
 * **[`nbody_layered_type_error.links`](nbody_layered_type_error.links)**: There is a type error in a fold function within the function `universe`, caused by tuple at line 365, which is only supposed to have two elements. This is a very small perturbation, and a realistic one - the program has signatures and nice aliases for compound types; however, it produces a massive type error - mostly due to the complexity of the function type, but the expanded vectors do not help.
 
   ```links
